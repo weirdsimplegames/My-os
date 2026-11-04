@@ -345,7 +345,10 @@ function legacy(id,root){if(id==='activity'){mountActivityTracker(root);return;}
    const box=document.createElement('section');box.id=id;
    box.style.cssText='position:fixed;z-index:100001;right:18px;top:62px;width:min(420px,calc(100vw - 28px));max-height:calc(100vh - 82px);overflow:auto;box-sizing:border-box;padding:17px;border:1px solid #45495b;border-radius:15px;background:#171923;color:#f4f5fb;box-shadow:0 18px 60px #000b;font:13px system-ui';
    box.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><b style="font-size:15px">'+title+'</b><button type="button" data-close style="padding:5px 9px">×</button></div>';
-   box.querySelector('[data-close]').onclick=()=>box.remove();document.body.appendChild(box);return box;
+   box.querySelector('[data-close]').onclick=()=>box.remove();
+   const controlStyles=document.createElement('style');
+   controlStyles.textContent='#ecCaptionPanel input[type=file],#ecCaptionPanel select,#ecTtsPanel select,#ecTtsPanel textarea{color-scheme:dark;background-color:#10141f!important;color:#f4f5fb!important;border:1px solid #46516a!important;border-radius:8px;box-sizing:border-box}#ecCaptionPanel input[type=file]{width:100%;padding:8px;font:inherit}#ecCaptionPanel input[type=file]::file-selector-button{margin-right:10px;padding:7px 11px;background:#292e40;color:#f4f5fb;border:1px solid #59627a;border-radius:6px;font:inherit;cursor:pointer}#ecCaptionPanel input[type=file]::file-selector-button:hover{background:#363d54}#ecCaptionPanel select,#ecTtsPanel select{padding:9px;width:100%}#ecCaptionPanel select option,#ecTtsPanel select option{background:#171923;color:#f4f5fb}#ecTtsPanel textarea{width:100%;padding:10px}#ecCaptionPanel input[type=file]:focus-visible,#ecCaptionPanel select:focus-visible,#ecTtsPanel select:focus-visible,#ecTtsPanel textarea:focus-visible{outline:2px solid #8b9cff;outline-offset:2px}';
+   box.appendChild(controlStyles);document.body.appendChild(box);return box;
   }
   function ecStatus(box,id,message){const el=box.querySelector('#'+id);if(el)el.textContent=message}
   async function ecStorageText(){
