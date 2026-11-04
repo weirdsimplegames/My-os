@@ -269,10 +269,19 @@ function legacy(id,root){if(id==='activity'){mountActivityTracker(root);return;}
    });
    body.append(panel);
   }
+  function ecAddTextAnimatorSettings(){
+   const l=activeLayer(),body=document.getElementById('inspectorBody');if(!l||l.type!=='text'||!body||String(State.inspectorTab||'').toLowerCase()!=='animator')return;
+   if(body.querySelector('.ec-text-animator-settings'))return;
+   const c=l.textAnimator||{mode:'flow',duration:.65,delay:55,strength:100,wiggleX:18,wiggleY:18,wiggleRotation:0,posX:0,posY:45,frequency:2.5};
+   const p=document.createElement('section');p.className='ec-text-animator-settings ec-fx-controls-panel';p.innerHTML='<div class="ec-fx-stack-heading">TEXT ANIMATION</div><div class="ec-fx-card"><label>Animator<select id="ecTaMode"><option value="flow">Flow</option><option value="range">Range</option></select></label><div id="ecTaFields"></div><button id="ecTaRemove" class="ec-fx-delete" type="button">Remove animation</button></div>';
+   const defs=[['duration','Duration (s)',.1,4,.05,.65],['delay','Delay (ms)',0,500,5,55],['strength','Strength (%)',0,200,1,100],['wiggleX','Wiggle X (px)',0,300,1,18],['wiggleY','Wiggle Y (px)',0,300,1,18],['wiggleRotation','Wiggle Rotation (°)',0,180,1,0],['posX','Entrance X (px)',-500,500,1,0],['posY','Entrance Y (px)',-500,500,1,45],['frequency','Frequency (Hz)',.2,12,.1,2.5]];
+   defs.forEach(([key,label,min,max,step,def])=>{const v=c[key]??def,el=document.createElement('label');el.className='ec-fx-field';el.textContent=label;const input=document.createElement('input');input.type='range';input.className='ec-fx-slider';input.min=min;input.max=max;input.step=step;input.value=v;el.append(input);input.oninput=()=>{(l.textAnimator||(l.textAnimator={...c}))[key]=+input.value;drawFrame()};input.onchange=()=>pushHistory();p.querySelector('#ecTaFields').append(el)});
+   body.append(p);const mode=p.querySelector('#ecTaMode');mode.value=c.mode;mode.onchange=()=>{(l.textAnimator||(l.textAnimator={...c})).mode=mode.value;pushHistory();drawFrame()};p.querySelector('#ecTaRemove').onclick=()=>{pushHistory();delete l.textAnimator;p.remove();drawFrame()};
+  }
   const originalInspector=renderInspector;
-  renderInspector=function(){originalInspector();ecAddFxSettings()};window.renderInspector=renderInspector;
+  renderInspector=function(){originalInspector();ecAddFxSettings();ecAddTextAnimatorSettings()};window.renderInspector=renderInspector;
   const originalWorldTransform=worldTransform;
-  window.worldTransform=function(layer,seen){const tr=originalWorldTransform(layer,seen);let x=tr.x,y=tr.y,rotation=tr.rotation;for(const fx of layer.effects||[]){if(fx.enabled===false||!['oscillate','autoshake','handheld','impact'].includes(fx.type))continue;const amp=(Number(effectValue(layer,fx))||0)*.22*(Number(ecFxValue(layer,fx,'amplitude',100))/100),hz=Math.max(.2,Math.min(60,Number(ecFxValue(layer,fx,'frequency',8))||8)),t=Math.max(0,State.currentTime-layer.startTime),phase=t*hz*Math.PI*2+(Number(ecFxValue(layer,fx,'phase',0))||0)*Math.PI/180,seed=String(layer.id||'').split('').reduce((n,c)=>n+c.charCodeAt(0),0),u=Math.sin(phase+seed*.013),v=Math.cos(phase*.73+seed*.021),rot=Number(ecFxValue(layer,fx,'rotation',1))||0,xm=Number(ecFxValue(layer,fx,'xAmount',100))/100,ym=Number(ecFxValue(layer,fx,'yAmount',100))/100,angle=Number(ecFxValue(layer,fx,'angle',0))*Math.PI/180;let dx=0,dy=0,dr=0;if(fx.type==='oscillate'){const p=t*hz*Math.PI*2+(Number(ecFxValue(layer,fx,'phase',0))||0)*Math.PI/180;dx=Math.sin(p)*amp*2*xm;dy=Math.sin(p+Math.PI/2)*amp*1.4*ym;dr=Math.sin(p)*rot*amp/12}else if(fx.type==='autoshake'){const sm=Math.max(0,Math.min(1,Number(ecFxValue(layer,fx,'smoothness',45))/100)),rate=hz*(1.5-sm),n=Math.floor(t*rate),f=t*rate-n,noise=(k)=>{const z=Math.sin((k+seed)*127.1+seed*311.7)*43758.5453;return (z-Math.floor(z))*2-1},blend=f*f*(3-2*f),nx=noise(n)+(noise(n+1)-noise(n))*blend,ny=noise(n+17)+(noise(n+18)-noise(n+17))*blend;dx=nx*amp*2*xm;dy=ny*amp*2*ym;dr=noise(n+31)*rot*amp/10}else if(fx.type==='handheld'){const rough=Math.max(0,Math.min(1,Number(ecFxValue(layer,fx,'roughness',65))/100)),d=t*hz,sx=Math.sin(d*1.7+.4)+Math.sin(d*.63+2.1)*.45,sy=Math.cos(d*1.3+1.2)+Math.sin(d*.81)*.35,jx=Math.sin(t*(hz*5+2)+seed)*rough*.45,jy=Math.cos(t*(hz*4+2)+seed*.7)*rough*.45;dx=(sx*.55+jx)*amp*xm;dy=(sy*.55+jy)*amp*ym;dr=(Math.sin(d*1.1)*.6+Math.sin(t*(hz*3+1)+seed)*rough*.4)*rot*amp/12}else{const decay=Math.max(.1,Number(ecFxValue(layer,fx,'decay',5))||5),fade=Math.exp(-t*decay),p=t*hz*Math.PI*2,pulse=Math.sin(p)*fade;dx=pulse*amp*2*xm;dy=Math.cos(p*.82)*fade*amp*1.6*ym;dr=pulse*rot*amp/8}const rx=dx*Math.cos(angle)-dy*Math.sin(angle),ry=dx*Math.sin(angle)+dy*Math.cos(angle);x+=rx;y+=ry;rotation+=dr}return{...tr,x,y,rotation}};
+  window.worldTransform=function(layer,seen){const tr=originalWorldTransform(layer,seen);let x=tr.x,y=tr.y,rotation=tr.rotation;for(const fx of layer.effects||[]){if(fx.enabled===false||!['oscillate','autoshake','handheld','impact'].includes(fx.type))continue;const amp=(Number(effectValue(layer,fx))||0)*.22*(Number(ecFxValue(layer,fx,'amplitude',100))/100),hz=Math.max(.2,Math.min(60,Number(ecFxValue(layer,fx,'frequency',8))||8)),t=Math.max(0,State.currentTime-layer.startTime),phase=t*hz*Math.PI*2+(Number(ecFxValue(layer,fx,'phase',0))||0)*Math.PI/180,seed=String(layer.id||'').split('').reduce((n,c)=>n+c.charCodeAt(0),0),u=Math.sin(phase+seed*.013),v=Math.cos(phase*.73+seed*.021),rot=Number(ecFxValue(layer,fx,'rotation',1))||0,xm=Number(ecFxValue(layer,fx,'xAmount',100))/100,ym=Number(ecFxValue(layer,fx,'yAmount',100))/100,angle=Number(ecFxValue(layer,fx,'angle',0))*Math.PI/180;let dx=0,dy=0,dr=0;if(fx.type==='oscillate'){const p=t*hz*Math.PI*2+(Number(ecFxValue(layer,fx,'phase',0))||0)*Math.PI/180;dx=Math.sin(p)*amp*2*xm;dy=Math.sin(p+Math.PI/2)*amp*1.4*ym;dr=Math.sin(p)*rot*amp/12}else if(fx.type==='autoshake'){const sm=Math.max(0,Math.min(1,Number(ecFxValue(layer,fx,'smoothness',45))/100)),rate=hz*(1.5-sm),n=Math.floor(t*rate),f=t*rate-n,noise=(k)=>{const z=Math.sin((k+seed)*127.1+seed*311.7)*43758.5453;return (z-Math.floor(z))*2-1},blend=f*f*(3-2*f),nx=noise(n)+(noise(n+1)-noise(n))*blend,ny=noise(n+17)+(noise(n+18)-noise(n+17))*blend;dx=nx*amp*2*xm;dy=ny*amp*2*ym;dr=noise(n+31)*rot*amp/10}else if(fx.type==='handheld'){const rough=Math.max(0,Math.min(1,Number(ecFxValue(layer,fx,'roughness',65))/100)),d=t*hz,sx=Math.sin(d*1.7+.4)+Math.sin(d*.63+2.1)*.45,sy=Math.cos(d*1.3+1.2)+Math.sin(d*.81)*.35,jx=Math.sin(t*(hz*5+2)+seed)*rough*.45,jy=Math.cos(t*(hz*4+2)+seed*.7)*rough*.45;dx=(sx*.55+jx)*amp*xm;dy=(sy*.55+jy)*amp*ym;dr=(Math.sin(d*1.1)*.6+Math.sin(t*(hz*3+1)+seed)*rough*.4)*rot*amp/12}else{const decay=Math.max(.1,Number(ecFxValue(layer,fx,'decay',5))||5),fade=Math.exp(-t*decay),p=t*hz*Math.PI*2,pulse=Math.sin(p)*fade;dx=pulse*amp*2*xm;dy=Math.cos(p*.82)*fade*amp*1.6*ym;dr=pulse*rot*amp/8}const rx=dx*Math.cos(angle)-dy*Math.sin(angle),ry=dx*Math.sin(angle)+dy*Math.cos(angle);x+=rx;y+=ry;rotation+=dr}const a=layer&&layer.textAnimator;if(a&&a.enabled!==false&&layer.type==='text'){const t=Math.max(0,(Number(State.currentTime)||0)-(Number(layer.startTime)||0)),delay=Math.max(0,Number(a.delay)||0)/1000,k=Math.max(0,Number(a.strength)||100)/100;if(a.mode==='range'){const p=t*Math.PI*2*(Number(a.frequency)||2.5);x+=Math.sin(p)*Number(a.wiggleX||0)*k;y+=Math.cos(p*.91)*Number(a.wiggleY||0)*k;rotation+=Math.sin(p*.83)*Number(a.wiggleRotation||0)*k}else{const q=Math.max(0,Math.min(1,(t-delay)/Math.max(.05,Number(a.duration)||.65))),v=Math.pow(1-q,3);x+=Number(a.posX||0)*v*k;y+=Number(a.posY||0)*v*k}}return{...tr,x,y,rotation}};
   Object.assign(FX,{
    oscillate:{label:'Oscillate',min:0,max:100,step:1,def:0,unit:'%'},
    autoshake:{label:'Auto Shake',min:0,max:100,step:1,def:0,unit:'%'},
@@ -462,43 +471,6 @@ function legacy(id,root){if(id==='activity'){mountActivityTracker(root);return;}
    };
    box.querySelector('#ecTaRemove').onclick=()=>{pushHistory();delete l.textAnimator;if(typeof drawFrame==='function')drawFrame();box.querySelector('#ecTaStatus').textContent='Text animation removed.'};
   }
-  if(typeof drawFrame==='function'&&!window.__ecTextAnimatorDrawWrapped){
-   const ecDrawFrameBase=drawFrame;
-   drawFrame=function(){
-    const changed=[];
-    try{
-     const now=Number(State.currentTime)||0;
-     (State.layers||[]).forEach(layer=>{
-      const a=layer&&layer.textAnimator;if(!a||layer.type!=='text')return;
-      const start=Number(layer.startTime)||0,elapsed=now-start;
-      const duration=Math.max(.05,Number(a.duration)||.65),delay=Math.max(0,Number(a.delay)||0)/1000;
-      const strength=Math.max(0,Number(a.strength)||0)/100;
-      const save={x:layer.x,y:layer.y,fontSize:layer.fontSize,rotation:layer.rotation,opacity:layer.opacity};
-      changed.push([layer,save]);
-      if(a.mode==='flow'){
-       const p=Math.max(0,Math.min(1,(elapsed-delay)/duration));
-       const eased=1-Math.pow(1-p,3),inv=1-eased;
-       layer.x=(Number(save.x)||0)+Number(a.posX||0)*inv*strength;
-       layer.y=(Number(save.y)||0)+Number(a.posY||0)*inv*strength;
-       layer.fontSize=(Number(save.fontSize)||54)*(1+(Number(a.scale||100)/100-1)*inv*strength);
-       layer.rotation=(Number(save.rotation)||0)+Number(a.rotation||0)*inv*strength;
-       layer.opacity=(Number(save.opacity)==0?100:Number(save.opacity))*(1-inv*(1-(Number(a.opacity)||0)/100)*strength);
-      }else{
-       const phase=elapsed*Math.PI*2*(Number(a.frequency)||2.5);
-       const fade=Math.max(0,elapsed-delay);
-       layer.x=(Number(save.x)||0)+Math.sin(phase)*Number(a.wiggleX||0)*strength;
-       layer.y=(Number(save.y)||0)+Math.cos(phase*.91)*Number(a.wiggleY||0)*strength;
-       layer.fontSize=(Number(save.fontSize)||54)*(1+Math.sin(phase*1.13)*Number(a.wiggleScale||0)/100*strength);
-       layer.rotation=(Number(save.rotation)||0)+Math.sin(phase*.83)*Number(a.wiggleRotation||0)*strength;
-       layer.opacity=Number(save.opacity)==0?100:Number(save.opacity);
-      }
-     });
-     return ecDrawFrameBase.apply(this,arguments);
-    }finally{changed.forEach(([layer,v])=>{layer.x=v.x;layer.y=v.y;layer.fontSize=v.fontSize;layer.rotation=v.rotation;layer.opacity=v.opacity})}
-   };
-   window.__ecTextAnimatorDrawWrapped=true;
-  }
-  if(nav&&!document.getElementById('ecTextAnimator')){const b=document.createElement('button');b.id='ecTextAnimator';b.textContent='Text animator';b.onclick=ecOpenTextAnimator;nav.appendChild(b)}
   if(nav&&!document.getElementById('ecAutoCaptions')){const b=document.createElement('button');b.id='ecAutoCaptions';b.textContent='Auto captions';b.onclick=ecOpenCaptions;nav.appendChild(b)}
   if(nav&&!document.getElementById('ecTextToSpeech')){const b=document.createElement('button');b.id='ecTextToSpeech';b.textContent='Text to speech';b.onclick=ecOpenTTS;nav.appendChild(b)}
 
