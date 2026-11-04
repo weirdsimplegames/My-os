@@ -414,7 +414,6 @@ function legacy(id,root){if(id==='activity'){mountActivityTracker(root);return;}
    box.querySelector('#ecTtsDelete').onclick=async()=>{try{ecTtsEngine=null;ecTtsModule=null;const mod=await ecGetAiModule();await mod.ModelRegistry.clear_cache('onnx-community/Kokoro-82M-v1.0-ONNX',{dtype:'q8'});status.textContent='Voice model cache cleared from this browser.';ecStorageText().then(v=>ecStatus(box,'ecTtsStorage',v))}catch(err){status.textContent='Could not clear the voice model cache: '+String(err&&err.message||err)}};
    box.addEventListener('DOMNodeRemoved',()=>{if(objectUrl)URL.revokeObjectURL(objectUrl)},{once:true});
   }
-  const nav=document.querySelector('.topbar .menu');
   if(nav&&!document.getElementById('ecAutoCaptions')){const b=document.createElement('button');b.id='ecAutoCaptions';b.textContent='Auto captions';b.onclick=ecOpenCaptions;nav.appendChild(b)}
   if(nav&&!document.getElementById('ecTextToSpeech')){const b=document.createElement('button');b.id='ecTextToSpeech';b.textContent='Text to speech';b.onclick=ecOpenTTS;nav.appendChild(b)}
 
