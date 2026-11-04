@@ -134,7 +134,7 @@ function myosEnsureConsentNotice(){
  const box=document.createElement('aside');box.id='myos-analytics-consent';
  box.style.cssText='position:fixed;right:18px;bottom:18px;z-index:100000;max-width:360px;padding:16px;border:1px solid #ffffff30;border-radius:16px;background:#17191f;color:#f5f5f5;box-shadow:0 12px 40px #0008;font:13px/1.5 system-ui';
  box.innerHTML='<b style="display:block;font-size:14px;margin-bottom:5px">Anonymous usage analytics</b><span style="color:#c5c8d0">My OS can share anonymous counts of sessions, app launches, and time spent in apps. No message content, passwords, or names are collected. You can decline.</span><div style="display:flex;gap:8px;margin-top:12px"><button data-choice="yes" style="border:0;border-radius:9px;padding:8px 12px;background:#16a34a;color:white;font-weight:700">Allow analytics</button><button data-choice="no" style="border:1px solid #ffffff40;border-radius:9px;padding:8px 12px;background:transparent;color:white">Not now</button></div>';
- box.addEventListener('click',e=>{const choice=e.target.closest('[data-choice]')?.dataset.choice;if(!choice)return;localStorage.setItem(MYOS_CONSENT_KEY,choice);box.remove();if(choice==='yes'){myosSendAnalytics('session_start');}});
+ box.addEventListener('click',e=>{const choice=e.target.closest('[data-choice]')?.dataset.choice;if(!choice)return;localStorage.setItem(MYOS_CONSENT_KEY,choice);box.remove();if(choice==='yes'){myosSessionAt=Date.now();if(myosActiveApp)myosActiveAppAt=Date.now();myosSendAnalytics('session_start');}});
  document.body.appendChild(box);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',myosEnsureConsentNotice,{once:true});else myosEnsureConsentNotice();
