@@ -422,6 +422,83 @@ function legacy(id,root){if(id==='activity'){mountActivityTracker(root);return;}
    box.querySelector('#ecTtsDelete').onclick=async()=>{try{ecTtsEngine=null;ecTtsModule=null;const mod=await ecGetAiModule();await mod.ModelRegistry.clear_cache('onnx-community/Kokoro-82M-v1.0-ONNX',{dtype:'q8'});status.textContent='Voice model cache cleared from this browser.';ecStorageText().then(v=>ecStatus(box,'ecTtsStorage',v))}catch(err){status.textContent='Could not clear the voice model cache: '+String(err&&err.message||err)}};
    box.addEventListener('DOMNodeRemoved',()=>{if(objectUrl)URL.revokeObjectURL(objectUrl)},{once:true});
   }
+  function ecOpenTextAnimator(){
+   const box=ecPanel('ecTextAnimatorPanel','Text animator');
+   if(!box)return;
+   const l=typeof activeLayer==='function'?activeLayer():null;
+   if(!l||l.type!=='text'){box.insertAdjacentHTML('beforeend','<p style="color:#ffcf70">Select a text layer first, then open Text animator.</p>');return}
+   const cfg=l.textAnimator||{mode:'flow',unit:'character',duration:0.65,delay:55,strength:100,wiggleX:0,wiggleY:0,wiggleScale:0,wiggleRotation:0,posX:0,posY:45,scale:75,rotation:0,opacity:0,frequency:2.5};
+   const row=(id,label,min,max,step,value,suffix)=>'<label style="display:block;margin:13px 0 5px;font-weight:700">'+label+' <b id="'+id+'Val" style="float:right;color:#20c765">'+value+suffix+'</b></label><input id="'+id+'" type="range" min="'+min+'" max="'+max+'" step="'+step+'" value="'+value+'" style="width:100%;accent-color:#20c765">';
+   box.insertAdjacentHTML('beforeend',
+    '<p style="color:#aeb4c7;line-height:1.5;margin:12px 0">Animate the selected text layer during playback. Flow creates an entrance; Range adds continuous motion. Changes are stored on the layer.</p>'+
+    '<label style="display:block;margin:12px 0 6px">Animator</label><select id="ecTaMode" style="width:100%;padding:10px;background:#10141f;color:#fff;border:1px solid #59627a;border-radius:8px"><option value="flow">Flow · entrance</option><option value="range">Range · continuous motion</option></select>'+
+    '<label style="display:block;margin:12px 0 6px">Unit / stagger</label><select id="ecTaUnit" style="width:100%;padding:10px;background:#10141f;color:#fff;border:1px solid #59627a;border-radius:8px"><option value="all">All</option><option value="character">Per Character</option><option value="word">Per Word</option><option value="line">Per Line</option></select>'+
+    row('ecTaDuration','Duration (seconds)',0.1,4,0.05,cfg.duration,'s')+
+    row('ecTaDelay','Delay (ms)',0,500,5,cfg.delay,'ms')+
+    row('ecTaStrength','Strength (%)',0,200,1,cfg.strength,'%')+
+    '<div style="height:1px;background:#39445b;margin:15px 0"></div><b style="color:#20c765">Transform</b>'+
+    row('ecTaX','Wiggle X (px)',0,300,1,cfg.wiggleX,'px')+
+    row('ecTaY','Wiggle Y (px)',0,300,1,cfg.wiggleY,'px')+
+    row('ecTaScale','Wiggle Scale (%)',0,150,1,cfg.wiggleScale,'%')+
+    row('ecTaRot','Wiggle Rotation (°)',0,180,1,cfg.wiggleRotation,'°')+
+    row('ecTaPosX','Entrance X (px)',-500,500,1,cfg.posX,'px')+
+    row('ecTaPosY','Entrance Y (px)',-500,500,1,cfg.posY,'px')+
+    row('ecTaBaseScale','Entrance Scale (%)',0,200,1,cfg.scale,'%')+
+    row('ecTaBaseRot','Entrance Rotation (°)',-180,180,1,cfg.rotation,'°')+
+    row('ecTaOpacity','Start Opacity (%)',0,100,1,cfg.opacity,'%')+
+    row('ecTaFreq','Frequency',0.2,12,0.1,cfg.frequency,'Hz')+
+    '<div style="display:flex;gap:8px;margin-top:18px"><button id="ecTaApply" style="flex:1;background:#20b95d;color:#06130a;border:0;border-radius:8px;padding:11px;font-weight:800">Apply to text</button><button id="ecTaRemove" style="background:#38242a;color:#ffd4d9;border:1px solid #87505c;border-radius:8px;padding:11px">Remove</button></div><p id="ecTaStatus" style="color:#aeb4c7;margin:12px 0 0">Ready · select a mode and apply</p>');
+   const setVal=(id,v,suffix)=>{const el=box.querySelector('#'+id+'Val');if(el)el.textContent=v+suffix};
+   const fields=[['ecTaDuration','s'],['ecTaDelay','ms'],['ecTaStrength','%'],['ecTaX','px'],['ecTaY','px'],['ecTaScale','%'],['ecTaRot','°'],['ecTaPosX','px'],['ecTaPosY','px'],['ecTaBaseScale','%'],['ecTaBaseRot','°'],['ecTaOpacity','%'],['ecTaFreq','Hz']];
+   fields.forEach(([id,suffix])=>box.querySelector('#'+id).addEventListener('input',e=>setVal(id,e.target.value,suffix)));
+   box.querySelector('#ecTaMode').value=cfg.mode;
+   box.querySelector('#ecTaUnit').value=cfg.unit;
+   box.querySelector('#ecTaApply').onclick=()=>{
+    const read=id=>Number(box.querySelector('#'+id).value);
+    pushHistory();
+    l.textAnimator={mode:box.querySelector('#ecTaMode').value,unit:box.querySelector('#ecTaUnit').value,duration:read('ecTaDuration'),delay:read('ecTaDelay'),strength:read('ecTaStrength'),wiggleX:read('ecTaX'),wiggleY:read('ecTaY'),wiggleScale:read('ecTaScale'),wiggleRotation:read('ecTaRot'),posX:read('ecTaPosX'),posY:read('ecTaPosY'),scale:read('ecTaBaseScale'),rotation:read('ecTaBaseRot'),opacity:read('ecTaOpacity'),frequency:read('ecTaFreq')};
+    if(typeof renderInspector==='function')renderInspector();if(typeof renderTimeline==='function')renderTimeline();if(typeof drawFrame==='function')drawFrame();
+    box.querySelector('#ecTaStatus').textContent='Applied to "'+(l.name||'Text layer')+'". Press Play to preview.';
+   };
+   box.querySelector('#ecTaRemove').onclick=()=>{pushHistory();delete l.textAnimator;if(typeof drawFrame==='function')drawFrame();box.querySelector('#ecTaStatus').textContent='Text animation removed.'};
+  }
+  if(typeof drawFrame==='function'&&!window.__ecTextAnimatorDrawWrapped){
+   const ecDrawFrameBase=drawFrame;
+   drawFrame=function(){
+    const changed=[];
+    try{
+     const now=Number(State.currentTime)||0;
+     (State.layers||[]).forEach(layer=>{
+      const a=layer&&layer.textAnimator;if(!a||layer.type!=='text')return;
+      const start=Number(layer.startTime)||0,elapsed=now-start;
+      const duration=Math.max(.05,Number(a.duration)||.65),delay=Math.max(0,Number(a.delay)||0)/1000;
+      const strength=Math.max(0,Number(a.strength)||0)/100;
+      const save={x:layer.x,y:layer.y,fontSize:layer.fontSize,rotation:layer.rotation,opacity:layer.opacity};
+      changed.push([layer,save]);
+      if(a.mode==='flow'){
+       const p=Math.max(0,Math.min(1,(elapsed-delay)/duration));
+       const eased=1-Math.pow(1-p,3),inv=1-eased;
+       layer.x=(Number(save.x)||0)+Number(a.posX||0)*inv*strength;
+       layer.y=(Number(save.y)||0)+Number(a.posY||0)*inv*strength;
+       layer.fontSize=(Number(save.fontSize)||54)*(1+(Number(a.scale||100)/100-1)*inv*strength);
+       layer.rotation=(Number(save.rotation)||0)+Number(a.rotation||0)*inv*strength;
+       layer.opacity=(Number(save.opacity)==0?100:Number(save.opacity))*(1-inv*(1-(Number(a.opacity)||0)/100)*strength);
+      }else{
+       const phase=elapsed*Math.PI*2*(Number(a.frequency)||2.5);
+       const fade=Math.max(0,elapsed-delay);
+       layer.x=(Number(save.x)||0)+Math.sin(phase)*Number(a.wiggleX||0)*strength;
+       layer.y=(Number(save.y)||0)+Math.cos(phase*.91)*Number(a.wiggleY||0)*strength;
+       layer.fontSize=(Number(save.fontSize)||54)*(1+Math.sin(phase*1.13)*Number(a.wiggleScale||0)/100*strength);
+       layer.rotation=(Number(save.rotation)||0)+Math.sin(phase*.83)*Number(a.wiggleRotation||0)*strength;
+       layer.opacity=Number(save.opacity)==0?100:Number(save.opacity);
+      }
+     });
+     return ecDrawFrameBase.apply(this,arguments);
+    }finally{changed.forEach(([layer,v])=>{layer.x=v.x;layer.y=v.y;layer.fontSize=v.fontSize;layer.rotation=v.rotation;layer.opacity=v.opacity})}
+   };
+   window.__ecTextAnimatorDrawWrapped=true;
+  }
+  if(nav&&!document.getElementById('ecTextAnimator')){const b=document.createElement('button');b.id='ecTextAnimator';b.textContent='Text animator';b.onclick=ecOpenTextAnimator;nav.appendChild(b)}
   if(nav&&!document.getElementById('ecAutoCaptions')){const b=document.createElement('button');b.id='ecAutoCaptions';b.textContent='Auto captions';b.onclick=ecOpenCaptions;nav.appendChild(b)}
   if(nav&&!document.getElementById('ecTextToSpeech')){const b=document.createElement('button');b.id='ecTextToSpeech';b.textContent='Text to speech';b.onclick=ecOpenTTS;nav.appendChild(b)}
 
