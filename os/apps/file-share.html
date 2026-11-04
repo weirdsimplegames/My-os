@@ -15,7 +15,7 @@
 <p class="foot">Files are stored as binary objects in a private Supabase Storage bucket—not Base64 or browser storage. Video extensions and video MIME types are blocked. Sharing codes expire after 7 days; download links expire after 5 minutes. This project is on Supabase Free, which limits each file to 50 MB and has a finite total storage allowance.</p>
 </main>
 <script>
-(()=>{const API='https://cdvzhfqhzbmvgechmknn.supabase.co/functions/v1/myos-file-share',BASE='https://cdvzhfqhzbmvgechmknn.supabase.co',KEY='sb_publishable_KR9yE22W-i10ASfeSSPsFA_a7FWM6FC',BUCKET='myos-private-shares',MAX=50*1024*1024,VIDEO=/\\.(mp4|m4v|mov|mkv|webm|avi|wmv|flv|mpeg|mpg|3gp|ogv|ts|m2ts|vob)$/i,$=id=>document.getElementById(id);let file=null,shareCode='',deleteKey='';
+(()=>{const API='https://cdvzhfqhzbmvgechmknn.supabase.co/functions/v1/myos-file-share',BASE='https://cdvzhfqhzbmvgechmknn.supabase.co',KEY='sb_publishable_KR9yE22W-i10ASfeSSPsFA_a7FWM6FC',BUCKET='myos-private-shares',MAX=50*1024*1024,VIDEO=/\.(mp4|m4v|mov|mkv|webm|avi|wmv|flv|mpeg|mpg|3gp|ogv|ts|m2ts|vob)$/i,$=id=>document.getElementById(id);let file=null,shareCode='',deleteKey='';
 const msg=(id,s)=>$(id).textContent=s;
 async function api(data){const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','apikey':KEY,'Authorization':'Bearer '+KEY},body:JSON.stringify(data)}),v=await r.json().catch(()=>({}));if(!r.ok)throw Error(v.error||'Request failed ('+r.status+')');return v}
 function choose(f){file=f;$('chosen').classList.toggle('hidden',!f);$('upload').disabled=!f;if(f)$('filename').textContent=f.name+' · '+(f.size/1048576).toFixed(2)+' MB';msg('sendStatus','')}
