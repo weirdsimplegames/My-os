@@ -122,6 +122,7 @@ const myosVisitorId=myosStoredId('myos-global-visitor-id-v1');
 const myosSessionId=myosUuid();
 let myosAnalyticsEnabled=()=>localStorage.getItem(MYOS_CONSENT_KEY)==='yes';
 function myosAuthToken(){try{const v=JSON.parse(localStorage.getItem(MYOS_AUTH_STORAGE_KEY)||'null');return v?.access_token||null}catch{return null}}
+function myosAuthUserId(){try{return JSON.parse(localStorage.getItem(MYOS_AUTH_STORAGE_KEY)||'null')?.user?.id||null}catch{return null}}
 function myosSendAnalytics(eventType,appId=null,durationSeconds=0){
  if(!myosAnalyticsEnabled())return;
  const token=myosAuthToken();
@@ -139,12 +140,12 @@ function myosEnsureConsentNotice(){
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',myosEnsureConsentNotice,{once:true});else myosEnsureConsentNotice();
 let myosActiveApp=null,myosActiveAppAt=0,myosSessionAt=Date.now();
 function myosFlushAppTime(){if(!myosActiveApp||!myosActiveAppAt)return;const seconds=Math.floor((Date.now()-myosActiveAppAt)/1000);myosActiveAppAt=Date.now();if(seconds>0)myosSendAnalytics('app_time',myosActiveApp,Math.min(seconds,3600))}
-function myosSetActiveApp(id){if(myosActiveApp===id)return;myosFlushAppTime();myosActiveApp=id||null;myosActiveAppAt=myosActiveApp&&document.visibilityState!=='hidden'?Date.now():0}
+function myosSetActiveApp(id){if(myosActiveApp===id){if(myosActiveApp&&!myosActiveAppAt&&document.visibilityState!=='hidden')myosActiveAppAt=Date.now();return}myosFlushAppTime();myosActiveApp=id||null;myosActiveAppAt=myosActiveApp&&document.visibilityState!=='hidden'?Date.now():0}
 setInterval(()=>{if(document.visibilityState==='hidden'||!myosAnalyticsEnabled())return;if(myosActiveApp)myosFlushAppTime();const seconds=Math.floor((Date.now()-myosSessionAt)/1000);if(seconds>=30){myosSessionAt=Date.now();myosSendAnalytics('session_time',null,Math.min(seconds,3600));}},30000);
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){myosFlushAppTime();const seconds=Math.floor((Date.now()-myosSessionAt)/1000);if(seconds>0)myosSendAnalytics('session_time',null,Math.min(seconds,3600));myosSessionAt=Date.now()}else{const active=document.querySelector('.window.active:not(.minimized)');myosSetActiveApp(active?.dataset.app||null);myosSessionAt=Date.now()}});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){myosFlushAppTime();myosActiveAppAt=0;const seconds=Math.floor((Date.now()-myosSessionAt)/1000);if(seconds>0)myosSendAnalytics('session_time',null,Math.min(seconds,3600));myosSessionAt=Date.now()}else{const active=document.querySelector('.window.active:not(.minimized)');myosSetActiveApp(active?.dataset.app||null);myosSessionAt=Date.now()}});
 window.addEventListener('pagehide',()=>{myosFlushAppTime();const seconds=Math.floor((Date.now()-myosSessionAt)/1000);if(seconds>0)myosSendAnalytics('session_time',null,Math.min(seconds,3600));myosSendAnalytics('session_end')});
-let myosLastAuthToken=myosAuthToken();
-window.addEventListener('storage',e=>{if(e.key!==MYOS_AUTH_STORAGE_KEY)return;const next=myosAuthToken();if(next&&next!==myosLastAuthToken)myosSendAnalytics('login');myosLastAuthToken=next});
+let myosLastAuthUserId=myosAuthUserId();
+window.addEventListener('storage',e=>{if(e.key!==MYOS_AUTH_STORAGE_KEY)return;const next=myosAuthUserId();if(next&&next!==myosLastAuthUserId)myosSendAnalytics('login');myosLastAuthUserId=next});
 function activityData(){try{const a=JSON.parse(localStorage.getItem(ACTIVITY_KEY)||'[]');return Array.isArray(a)?a:[]}catch{return []}}
 function recordActivity(type,app){const a=activityData();a.push({type,app:app||'desktop',at:Date.now()});const cutoff=Date.now()-90*86400000;localStorage.setItem(ACTIVITY_KEY,JSON.stringify(a.filter(x=>x.at>cutoff).slice(-5000)));if(type==='app'||type==='app_open')myosSendAnalytics('app_open',app||'desktop');else if(type==='session')myosSendAnalytics('session_start')}
 async function mountActivityTracker(root){
