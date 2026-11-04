@@ -138,6 +138,7 @@ function myosEnsureConsentNotice(){
  document.body.appendChild(box);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',myosEnsureConsentNotice,{once:true});else myosEnsureConsentNotice();
+if(myosAnalyticsEnabled())myosSendAnalytics('session_start');
 let myosActiveApp=null,myosActiveAppAt=0,myosSessionAt=Date.now();
 function myosFlushAppTime(){if(!myosActiveApp||!myosActiveAppAt)return;const seconds=Math.floor((Date.now()-myosActiveAppAt)/1000);myosActiveAppAt=Date.now();if(seconds>0)myosSendAnalytics('app_time',myosActiveApp,Math.min(seconds,3600))}
 function myosSetActiveApp(id){if(myosActiveApp===id){if(myosActiveApp&&!myosActiveAppAt&&document.visibilityState!=='hidden')myosActiveAppAt=Date.now();return}myosFlushAppTime();myosActiveApp=id||null;myosActiveAppAt=myosActiveApp&&document.visibilityState!=='hidden'?Date.now():0}
