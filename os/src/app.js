@@ -334,7 +334,90 @@ function legacy(id,root){if(id==='activity'){mountActivityTracker(root);return;}
   }
   ecApplyPrefs();
   const nav=document.querySelector('.topbar .menu');if(nav&&!document.getElementById('ecAutoCaptions')){const b=document.createElement('button');b.id='ecAutoCaptions';b.textContent='Auto captions';b.onclick=ecOpenCaptions;nav.appendChild(b)}\n  if(nav&&!document.getElementById('ecEditorSettingsButton')){const b=document.createElement('button');b.id='ecEditorSettingsButton';b.textContent='⚙ Editor settings';b.onclick=ecOpenSettings;nav.appendChild(b)}
-  function ecOpenCaptions(){let box=document.getElementById('ecCaptionPanel');if(box){box.remove();return}box=document.createElement('div');box.id='ecCaptionPanel';box.style.cssText='position:fixed;z-index:99999;right:18px;top:62px;width:min(390px,calc(100vw - 36px));padding:18px;border:1px solid #45495b;border-radius:16px;background:#171923;color:#f4f5fb;box-shadow:0 18px 60px #0009;font:13px system-ui';box.innerHTML='<b>Auto captions</b><button id="ecCapClose" style="float:right">×</button><p style="color:#aeb4c7;line-height:1.5">Live speech-to-text. Play video audio through speakers while the microphone listens. Chrome speech recognition listens to the microphone; it cannot directly read the imported video audio track.</p><select id="ecCapLang" style="width:100%;padding:9px"><option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="es-ES">Spanish</option><option value="fr-FR">French</option><option value="pt-BR">Portuguese</option></select><p id="ecCapStatus">Ready to listen.</p><div id="ecCapText" style="max-height:120px;overflow:auto;padding:9px;background:#10121a">Recognized speech appears here.</div><div style="display:flex;gap:8px;margin-top:10px"><button id="ecCapStart">Start listening</button><button id="ecCapStop" disabled>Stop</button><button id="ecCapAdd" disabled>Add captions</button></div>';document.body.appendChild(box);let rec=null,finals=[],interim='';const status=box.querySelector('#ecCapStatus'),txt=box.querySelector('#ecCapText'),start=box.querySelector('#ecCapStart'),stop=box.querySelector('#ecCapStop'),add=box.querySelector('#ecCapAdd');box.querySelector('#ecCapClose').onclick=()=>{try{rec?.stop()}catch{}box.remove()};const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){status.textContent='Speech recognition is not supported in this browser.';start.disabled=true;return}rec=new SR();rec.continuous=true;rec.interimResults=true;rec.onstart=()=>{status.textContent='Listening… play the video audio now.';start.disabled=true;stop.disabled=false};rec.onresult=e=>{interim='';for(let i=e.resultIndex;i<e.results.length;i++){const phrase=e.results[i][0].transcript.trim();if(e.results[i].isFinal&&phrase)finals.push({text:phrase,time:State.currentTime});else interim+=phrase+' '}txt.textContent=finals.map(x=>x.text).join(' ')+(interim?' '+interim:'');add.disabled=!finals.length};rec.onerror=e=>{status.textContent='Recognition error: '+e.error;start.disabled=false;stop.disabled=true};rec.onend=()=>{start.disabled=false;stop.disabled=true;if(finals.length)status.textContent=finals.length+' caption segment(s) ready.'};start.onclick=()=>{try{rec.lang=box.querySelector('#ecCapLang').value;rec.start()}catch(e){status.textContent=e.message}};stop.onclick=()=>rec.stop();add.onclick=()=>{if(!finals.length)return;pushHistory();const total=Math.max(.1,State.project.duration);finals.forEach((entry,i)=>{const t=clamp(entry.time,0,total-.1),layer=makeLayer('text',{name:'Caption '+(i+1),text:entry.text,fontSize:54,fontFamily:'Arial',fontWeight:700,align:'center',color:'#ffffff',stroke:'#000000',strokeWidth:3,width:1600,height:110,x:State.project.width/2,y:State.project.height*.86,startTime:t,duration:Math.max(.6,Math.min(3,total-t))});State.layers.push(layer)});renderTimeline();renderInspector();drawFrame();status.textContent='Added '+finals.length+' caption layers.';add.disabled=true}}
+  let ecAsrPipeline=null,ecTtsEngine=null,ecAiModule=null,ecTtsModule=null;
+  const ecModelCacheName='transformers-cache';
+  async function ecGetAiModule(){
+   if(!ecAiModule){ecAiModule=await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1');ecAiModule.env.useBrowserCache=true}
+   return ecAiModule;
+  }
+  function ecPanel(id,title){
+   let old=document.getElementById(id);if(old){old.remove();return null}
+   const box=document.createElement('section');box.id=id;
+   box.style.cssText='position:fixed;z-index:100001;right:18px;top:62px;width:min(420px,calc(100vw - 28px));max-height:calc(100vh - 82px);overflow:auto;box-sizing:border-box;padding:17px;border:1px solid #45495b;border-radius:15px;background:#171923;color:#f4f5fb;box-shadow:0 18px 60px #000b;font:13px system-ui';
+   box.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><b style="font-size:15px">'+title+'</b><button type="button" data-close style="padding:5px 9px">×</button></div>';
+   box.querySelector('[data-close]').onclick=()=>box.remove();document.body.appendChild(box);return box;
+  }
+  function ecStatus(box,id,message){const el=box.querySelector('#'+id);if(el)el.textContent=message}
+  async function ecStorageText(){
+   try{const e=await navigator.storage.estimate();return 'Browser storage used: '+(e.usage/1048576).toFixed(1)+' MB'}catch{return 'Model files are saved in this browser.'}
+  }
+  function ecAddCaptionLayers(entries,status){
+   if(!entries.length){status.textContent='No timestamped speech was found.';return}
+   pushHistory();const total=Math.max(.1,Number(State.project.duration)||.1),valid=entries.filter(x=>x.text&&Number.isFinite(x.start));
+   valid.forEach((entry,i)=>{const t=clamp(entry.start,0,total-.05),end=Number.isFinite(entry.end)?entry.end:t+2.5,duration=Math.max(.45,Math.min(8,end-t,total-t));const layer=makeLayer('text',{name:'Caption '+(i+1),text:entry.text,fontSize:54,fontFamily:'Arial',fontWeight:700,align:'center',color:'#ffffff',stroke:'#000000',strokeWidth:3,width:1600,height:110,x:State.project.width/2,y:State.project.height*.86,startTime:t,duration});State.layers.push(layer)});
+   renderTimeline();renderInspector();drawFrame();status.textContent='Added '+valid.length+' caption layers to the timeline.';
+  }
+  function ecOpenCaptions(){
+   const box=ecPanel('ecCaptionPanel','Auto captions · imported audio');if(!box)return;
+   box.insertAdjacentHTML('beforeend','<p style="color:#aeb4c7;line-height:1.5">Choose the audio or video file you imported into your project. Transcription runs on this device; nothing is sent to a speech API. The model downloads only when you press Transcribe.</p><label style="display:block;margin:12px 0 6px">Audio or video file</label><input id="ecCapFile" type="file" accept="audio/*,video/*" style="width:100%"><label style="display:block;margin:12px 0 6px">Spoken language</label><select id="ecCapLang" style="width:100%;padding:9px;background:#10141f;color:#fff;border:1px solid #46516a;border-radius:8px"><option value="english">English</option><option value="spanish">Spanish</option><option value="french">French</option><option value="portuguese">Portuguese</option><option value="german">German</option><option value="japanese">Japanese</option></select><p style="color:#aeb4c7;font-size:11px;line-height:1.5">Uses Whisper Tiny (multilingual, quantized). Expect a model download of tens of MB or more. Long files can use significant Chromebook memory; start with a short clip.</p><p id="ecCapStorage" style="color:#9daac4;font-size:11px"></p><p id="ecCapStatus" aria-live="polite">Ready. No model has been downloaded.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button id="ecCapRun" type="button">Transcribe audio</button><button id="ecCapAdd" type="button" disabled>Add captions to timeline</button><button id="ecCapDelete" type="button">Delete caption model</button></div><div id="ecCapPreview" style="white-space:pre-wrap;max-height:180px;overflow:auto;margin-top:12px;padding:10px;background:#10121a;border-radius:8px;color:#e9ebf4"></div>');
+   const status=box.querySelector('#ecCapStatus'),run=box.querySelector('#ecCapRun'),add=box.querySelector('#ecCapAdd'),preview=box.querySelector('#ecCapPreview');let entries=[];
+   ecStorageText().then(v=>ecStatus(box,'ecCapStorage',v));
+   run.onclick=async()=>{
+    const file=box.querySelector('#ecCapFile').files[0];if(!file){status.textContent='Choose the audio or video file first.';return}
+    if(file.size>500*1024*1024){status.textContent='That file is over 500 MB. Try a shorter or smaller export to protect Chromebook memory.';return}
+    run.disabled=true;add.disabled=true;preview.textContent='';entries=[];
+    try{
+     status.textContent='Loading the local speech model… the first download may take a while.';
+     const mod=await ecGetAiModule();
+     if(!ecAsrPipeline)ecAsrPipeline=await mod.pipeline('automatic-speech-recognition','onnx-community/whisper-tiny',{dtype:'q8',device:'wasm',progress_callback:p=>{if(p&&p.status==='progress')status.textContent='Downloading speech model: '+Math.round(p.progress||0)+'%'}});
+     status.textContent='Reading audio…';
+     const AudioCtx=window.AudioContext||window.webkitAudioContext;if(!AudioCtx)throw new Error('Audio decoding is not supported in this browser.');
+     const ctx=new AudioCtx();let audio;
+     try{audio=await ctx.decodeAudioData(await file.arrayBuffer())}finally{await ctx.close()}
+     if(audio.duration>900)throw new Error('This first version limits transcription to 15 minutes per file to protect Chromebook memory. Split longer audio into shorter clips.');
+     status.textContent='Preparing audio for transcription…';
+     const rate=16000,count=Math.ceil(audio.length*rate/audio.sampleRate),mono=new Float32Array(count),channels=audio.numberOfChannels,src=[];for(let c=0;c<channels;c++)src.push(audio.getChannelData(c));
+     for(let i=0;i<count;i++){const pos=i*audio.sampleRate/rate,lo=Math.floor(pos),hi=Math.min(audio.length-1,lo+1),f=pos-lo;let sum=0;for(let c=0;c<channels;c++)sum+=src[c][lo]*(1-f)+src[c][hi]*f;mono[i]=sum/channels}
+     status.textContent='Transcribing locally… this can take a few minutes on a Chromebook.';
+     const result=await ecAsrPipeline(mono,{sampling_rate:rate,return_timestamps:true,chunk_length_s:30,stride_length_s:5,language:box.querySelector('#ecCapLang').value,task:'transcribe'});
+     const chunks=Array.isArray(result.chunks)&&result.chunks.length?result.chunks:[{text:result.text||'',timestamp:[0,audio.duration]}];
+     chunks.forEach(ch=>{const textValue=String(ch.text||'').trim();if(!textValue)return;const stamp=ch.timestamp||[null,null],start=Number.isFinite(stamp[0])?stamp[0]:0,end=Number.isFinite(stamp[1])?stamp[1]:Math.min(audio.duration,start+3);const sentences=textValue.match(/[^.!?]+[.!?]?/g)||[textValue];const totalChars=sentences.reduce((n,s)=>n+s.length,0)||1;let cursor=start;sentences.forEach(sentence=>{const clean=sentence.trim();if(!clean)return;const span=Math.max(.6,(end-start)*(clean.length/totalChars));entries.push({text:clean,start:cursor,end:Math.min(end,cursor+span)});cursor+=span})});
+     preview.textContent=entries.map(x=>'['+x.start.toFixed(1)+'s] '+x.text).join('\n');add.disabled=!entries.length;status.textContent=entries.length+' caption segments ready. Review them, then add to the timeline.';
+    }catch(err){console.error('Local transcription failed',err);status.textContent='Could not transcribe: '+String(err&&err.message||err)}
+    finally{run.disabled=false;ecStorageText().then(v=>ecStatus(box,'ecCapStorage',v))}
+   };
+   add.onclick=()=>{ecAddCaptionLayers(entries,status);add.disabled=true};
+   box.querySelector('#ecCapDelete').onclick=async()=>{try{ecAsrPipeline=null;const mod=await ecGetAiModule();await mod.ModelRegistry.clear_cache('onnx-community/whisper-tiny',{dtype:'q8'});status.textContent='Caption model cache cleared from this browser.';ecStorageText().then(v=>ecStatus(box,'ecCapStorage',v))}catch(err){status.textContent='Could not clear the model cache: '+String(err&&err.message||err)}};
+  }
+  function ecOpenTTS(){
+   const box=ecPanel('ecTtsPanel','Text to speech');if(!box)return;
+   box.insertAdjacentHTML('beforeend','<p style="color:#aeb4c7;line-height:1.5">Generate a WAV audio file locally on your Chromebook. The voice model downloads only when you press Generate. No paid API or cloud speech service is used.</p><label style="display:block;margin:12px 0 6px">Text</label><textarea id="ecTtsText" rows="5" maxlength="1200" placeholder="Type what you want the voice to say…" style="box-sizing:border-box;width:100%;resize:vertical;padding:10px;background:#10141f;color:#fff;border:1px solid #46516a;border-radius:8px"></textarea><label style="display:block;margin:12px 0 6px">Voice</label><select id="ecTtsVoice" style="width:100%;padding:9px;background:#10141f;color:#fff;border:1px solid #46516a;border-radius:8px"><option value="af_heart">Heart · American</option><option value="af_bella">Bella · American</option><option value="af_nicole">Nicole · American</option><option value="af_sarah">Sarah · American</option><option value="af_sky">Sky · American</option><option value="am_adam">Adam · American</option><option value="am_michael">Michael · American</option><option value="bf_emma">Emma · British</option><option value="bf_isabella">Isabella · British</option><option value="bm_george">George · British</option><option value="bm_lewis">Lewis · British</option></select><p style="color:#aeb4c7;font-size:11px;line-height:1.5">Uses Kokoro 82M (quantized). Its model download can be around 100 MB or more depending on the files and browser cache. Generation can be slow on lower-powered devices.</p><p id="ecTtsStorage" style="color:#9daac4;font-size:11px"></p><p id="ecTtsStatus" aria-live="polite">Ready. No voice model has been downloaded.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button id="ecTtsRun" type="button">Generate WAV</button><button id="ecTtsDownload" type="button" disabled>Download WAV</button><button id="ecTtsDelete" type="button">Delete voice model</button></div><audio id="ecTtsPlayer" controls style="display:none;width:100%;margin-top:12px"></audio>');
+   const status=box.querySelector('#ecTtsStatus'),run=box.querySelector('#ecTtsRun'),download=box.querySelector('#ecTtsDownload'),player=box.querySelector('#ecTtsPlayer');let wavBlob=null,objectUrl=null;
+   ecStorageText().then(v=>ecStatus(box,'ecTtsStorage',v));
+   run.onclick=async()=>{
+    const textValue=box.querySelector('#ecTtsText').value.trim();if(!textValue){status.textContent='Enter some text first.';return}if(textValue.length>1200){status.textContent='Keep this generation under 1,200 characters on this Chromebook.';return}
+    run.disabled=true;download.disabled=true;
+    try{
+     status.textContent='Loading the local voice model… the first download may take a while.';
+     if(!ecTtsEngine){const mod=await import('https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/+esm');ecTtsModule=mod;ecTtsEngine=await mod.KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX',{dtype:'q8',device:'wasm'})}
+     status.textContent='Generating speech on this device…';
+     const generated=await ecTtsEngine.generate(textValue,{voice:box.querySelector('#ecTtsVoice').value});
+     const samples=generated.audio||generated.data;if(!samples||!generated.sampling_rate)throw new Error('The voice model returned an unsupported audio format.');
+     const pcm=new ArrayBuffer(44+samples.length*2),view=new DataView(pcm),write=(offset,value)=>{for(let i=0;i<value.length;i++)view.setUint8(offset+i,value.charCodeAt(i))};
+     write(0,'RIFF');view.setUint32(4,36+samples.length*2,true);write(8,'WAVE');write(12,'fmt ');view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);view.setUint32(24,generated.sampling_rate,true);view.setUint32(28,generated.sampling_rate*2,true);view.setUint16(32,2,true);view.setUint16(34,16,true);write(36,'data');view.setUint32(40,samples.length*2,true);
+     for(let i=0;i<samples.length;i++){const s=Math.max(-1,Math.min(1,samples[i]));view.setInt16(44+i*2,s<0?s*32768:s*32767,true)}
+     wavBlob=new Blob([pcm],{type:'audio/wav'});if(objectUrl)URL.revokeObjectURL(objectUrl);objectUrl=URL.createObjectURL(wavBlob);player.src=objectUrl;player.style.display='block';download.disabled=false;status.textContent='WAV generated. Preview it, then download and import it into your project timeline.';
+    }catch(err){console.error('Local text-to-speech failed',err);status.textContent='Could not generate speech: '+String(err&&err.message||err)}
+    finally{run.disabled=false;ecStorageText().then(v=>ecStatus(box,'ecTtsStorage',v))}
+   };
+   download.onclick=()=>{if(!wavBlob)return;const a=document.createElement('a');a.href=objectUrl;a.download='ixxl-generated-voice.wav';document.body.appendChild(a);a.click();a.remove()};
+   box.querySelector('#ecTtsDelete').onclick=async()=>{try{ecTtsEngine=null;ecTtsModule=null;const mod=await ecGetAiModule();await mod.ModelRegistry.clear_cache('onnx-community/Kokoro-82M-v1.0-ONNX',{dtype:'q8'});status.textContent='Voice model cache cleared from this browser.';ecStorageText().then(v=>ecStatus(box,'ecTtsStorage',v))}catch(err){status.textContent='Could not clear the voice model cache: '+String(err&&err.message||err)}};
+   box.addEventListener('DOMNodeRemoved',()=>{if(objectUrl)URL.revokeObjectURL(objectUrl)},{once:true});
+  }
+  const nav=document.querySelector('.topbar .menu');
+  if(nav&&!document.getElementById('ecAutoCaptions')){const b=document.createElement('button');b.id='ecAutoCaptions';b.textContent='Auto captions';b.onclick=ecOpenCaptions;nav.appendChild(b)}
+  if(nav&&!document.getElementById('ecTextToSpeech')){const b=document.createElement('button');b.id='ecTextToSpeech';b.textContent='Text to speech';b.onclick=ecOpenTTS;nav.appendChild(b)}
+
  }catch(e){console.error('EffectCraft add-ons failed',e)}})();
 <\/script></body>`;
     html=html.replace(/<\/body>/i,featurePatch);
