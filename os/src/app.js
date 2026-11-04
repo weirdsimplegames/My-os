@@ -382,7 +382,7 @@ function legacy(id,root){if(id==='activity'){mountActivityTracker(root);return;}
      const result=await ecAsrPipeline(mono,{sampling_rate:rate,return_timestamps:true,chunk_length_s:30,stride_length_s:5,language:box.querySelector('#ecCapLang').value,task:'transcribe'});
      const chunks=Array.isArray(result.chunks)&&result.chunks.length?result.chunks:[{text:result.text||'',timestamp:[0,audio.duration]}];
      chunks.forEach(ch=>{const textValue=String(ch.text||'').trim();if(!textValue)return;const stamp=ch.timestamp||[null,null],start=Number.isFinite(stamp[0])?stamp[0]:0,end=Number.isFinite(stamp[1])?stamp[1]:Math.min(audio.duration,start+3);const sentences=textValue.match(/[^.!?]+[.!?]?/g)||[textValue];const totalChars=sentences.reduce((n,s)=>n+s.length,0)||1;let cursor=start;sentences.forEach(sentence=>{const clean=sentence.trim();if(!clean)return;const span=Math.max(.6,(end-start)*(clean.length/totalChars));entries.push({text:clean,start:cursor,end:Math.min(end,cursor+span)});cursor+=span})});
-     preview.textContent=entries.map(x=>'['+x.start.toFixed(1)+'s] '+x.text).join('\n');add.disabled=!entries.length;status.textContent=entries.length+' caption segments ready. Review them, then add to the timeline.';
+     preview.textContent=entries.map(x=>'['+x.start.toFixed(1)+'s] '+x.text).join('\\n');add.disabled=!entries.length;status.textContent=entries.length+' caption segments ready. Review them, then add to the timeline.';
     }catch(err){console.error('Local transcription failed',err);status.textContent='Could not transcribe: '+String(err&&err.message||err)}
     finally{run.disabled=false;ecStorageText().then(v=>ecStatus(box,'ecCapStorage',v))}
    };
