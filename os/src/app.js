@@ -270,8 +270,8 @@ function legacy(id,root){if(id==='activity'){mountActivityTracker(root);return;}
    body.append(panel);
   }
   function ecAddTextAnimatorSettings(){
-   const l=activeLayer(),body=document.getElementById('inspectorBody');if(!l||l.type!=='text'||!body||String(State.inspectorTab||'').toLowerCase()!=='animator')return;
-   if(body.querySelector('.ec-text-animator-settings'))return;
+   const l=activeLayer(),body=document.getElementById('inspectorBody');if(!l||l.type!=='text'||!body)return;
+   const existing=body.querySelector('.ec-text-animator-settings');if(existing)existing.remove();
    const c=l.textAnimator||{mode:'flow',duration:.65,delay:55,strength:100,wiggleX:18,wiggleY:18,wiggleRotation:0,posX:0,posY:45,frequency:2.5};
    const p=document.createElement('section');p.className='ec-text-animator-settings ec-fx-controls-panel';p.innerHTML='<div class="ec-fx-stack-heading">TEXT ANIMATION</div><div class="ec-fx-card"><label>Animator<select id="ecTaMode"><option value="flow">Flow</option><option value="range">Range</option></select></label><div id="ecTaFields"></div><button id="ecTaRemove" class="ec-fx-delete" type="button">Remove animation</button></div>';
    const defs=[['duration','Duration (s)',.1,4,.05,.65],['delay','Delay (ms)',0,500,5,55],['strength','Strength (%)',0,200,1,100],['wiggleX','Wiggle X (px)',0,300,1,18],['wiggleY','Wiggle Y (px)',0,300,1,18],['wiggleRotation','Wiggle Rotation (°)',0,180,1,0],['posX','Entrance X (px)',-500,500,1,0],['posY','Entrance Y (px)',-500,500,1,45],['frequency','Frequency (Hz)',.2,12,.1,2.5]];
