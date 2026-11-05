@@ -1757,15 +1757,23 @@
         if (error) throw error;
         (data || []).reverse();
         const userIds = [...new Set((data || []).map(row => row.user_id))];
-        if (userIds.length) {
-          const {data:profiles, error:profileError} = await supabase.from('vus_profiles')
-            .select('id,username,display_name,avatar_url,rank').in('id',userIds);
-          if (profileError) throw profileError;
-          (profiles || []).forEach(profile => profileCache.set(profile.id, profile));
-        }
+        const messageIds = (data || []).map(row => row.id);
+        const [profileResult, reactionResult] = await Promise.all([
+          userIds.length ? supabase.from('vus_profiles').select('id,username,display_name,avatar_url,rank').in('id',userIds) : Promise.resolve({data:[],error:null}),
+          messageIds.length ? supabase.from('vus_message_reactions').select('message_id,emoji').in('message_id',messageIds) : Promise.resolve({data:[],error:null})
+        ]);
+        if (profileResult.error) throw profileResult.error;
+        (profileResult.data || []).forEach(profile => profileCache.set(profile.id, profile));
         messagesStore[channelId] = (data || []).map(row => profileForMessage(profileCache.get(row.user_id), row));
-        const messageIds=(data||[]).map(row=>row.id);
-        if(messageIds.length){const {data:reactions}=await supabase.from('vus_message_reactions').select('message_id,emoji').in('message_id',messageIds);(reactions||[]).forEach(reaction=>{const target=messagesStore[channelId].find(m=>String(m.id)===String(reaction.message_id));if(target){target.reactions=target.reactions||[];const item=target.reactions.find(r=>r.emoji===reaction.emoji);if(item)item.count++;else target.reactions.push({emoji:reaction.emoji,count:1});}});}
+        (reactionResult.data || []).forEach(reaction => {
+          const target = messagesStore[channelId].find(m => String(m.id) === String(reaction.message_id));
+          if (target) {
+            target.reactions = target.reactions || [];
+            const item = target.reactions.find(r => r.emoji === reaction.emoji);
+            if (item) item.count++;
+            else target.reactions.push({emoji:reaction.emoji,count:1});
+          }
+        });
         if (channelId === currentChannelId) renderMessagesOnline();
       }
 
@@ -2505,10 +2513,13 @@
           await loadOwnProfile();
           await loadProfiles();
           await loadServerIndex();
-          await startGlobalPresence();
           const main = serverChannels.find(channel => channel.name.toLowerCase() === 'general') || serverChannels[0];
-          if (main) await window.selectChannel(main.id);
-          else showSafeToast('No chat channels are available for this account.', 'error');
+          if (main) {
+            await Promise.all([startGlobalPresence(), window.selectChannel(main.id)]);
+          } else {
+            await startGlobalPresence();
+            showSafeToast('No chat channels are available for this account.', 'error');
+          }
         } catch (error) {
           showAuthScreen(true);
           setAuthStatus(error?.message || 'Could not load your Ixxl Chat profile. Check the database setup.', true);
