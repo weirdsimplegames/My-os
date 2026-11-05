@@ -4,28 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ixxl Chat - Liquid Glass Edition</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tailwind CSS browser build served from jsDelivr (the old cdn.tailwindcss.com host may be blocked on managed Chromebooks). -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    },
-                    colors: {
-                        accent: 'var(--accent-color, #10B981)',
-                        accentHover: 'var(--accent-hover, #059669)',
-                    }
-                }
-            }
+    <style type="text/tailwindcss">
+        @theme {
+            --font-sans: Inter, sans-serif;
+            --color-accent: var(--accent-color, #10B981);
+            --color-accent-hover: var(--accent-hover, #059669);
         }
-    </script>
+    </style>
     <style>
         :root {
             --accent-color: #10B981;
