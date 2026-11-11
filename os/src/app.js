@@ -162,8 +162,9 @@ function legacy(id,root){if(id==='minecraft18'){
   const frame=document.createElement('iframe');frame.title='Minecraft 1.8 Client';frame.allow='fullscreen; gamepad; clipboard-read; clipboard-write';
   frame.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:0;background:#111';
   root.replaceChildren(frame);
-  const url=new URL('apps/[LATEST] EB Client Nextgen CU7.html',document.baseURI);
-  frame.src=url.href;
+  // Load the large client directly from GitHub Raw. This avoids fetching the
+  // 22 MB HTML through the app code and keeps the client running in the iframe.
+  frame.src='https://raw.githubusercontent.com/weirdsimplegames/My-os/main/os/apps/%5BLATEST%5D%20EB%20Client%20Nextgen%20CU7.html';
   return;
 }if(id==='activity'){mountActivityTracker(root);return;}if(id==='fileshare'){
   root.style.position='relative';root.style.height='100%';root.style.minHeight='0';root.style.overflow='hidden';
