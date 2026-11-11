@@ -162,9 +162,22 @@ function legacy(id,root){if(id==='minecraft18'){
   const frame=document.createElement('iframe');frame.title='Minecraft 1.8 Client';frame.allow='fullscreen; gamepad; clipboard-read; clipboard-write';
   frame.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:0;background:#111';
   root.replaceChildren(frame);
-  // Load the large client directly from GitHub Raw. This avoids fetching the
-  // 22 MB HTML through the app code and keeps the client running in the iframe.
-  frame.src='https://raw.githubusercontent.com/weirdsimplegames/My-os/main/os/apps/%5BLATEST%5D%20EB%20Client%20Nextgen%20CU7.html';
+  // Fetch the client from GitHub Raw, then embed it as srcdoc. Raw GitHub
+  // blocks direct iframe navigation, but its HTML can be fetched and embedded.
+  const clientUrl='https://raw.githubusercontent.com/weirdsimplegames/My-os/main/os/apps/%5BLATEST%5D%20EB%20Client%20Nextgen%20CU7.html';
+  frame.srcdoc='<!doctype html><html><body style="margin:0;background:#111;color:#eee;font:14px system-ui;display:grid;place-items:center;height:100vh"><p>Loading Minecraft 1.8 Client…</p></body></html>';
+  fetch(clientUrl,{cache:'no-store'})
+    .then(response=>{if(!response.ok)throw new Error('GitHub returned HTTP '+response.status);return response.text()})
+    .then(html=>{
+      const base='<base href="'+clientUrl.replace(/%5B/g,'[').replace(/%5D/g,']')+'">';
+      if(/<head[^>]*>/i.test(html))html=html.replace(/<head([^>]*)>/i,'<head$1>'+base);
+      else html='<!doctype html><html><head>'+base+'</head><body>'+html+'</body></html>';
+      frame.srcdoc=html;
+    })
+    .catch(error=>{
+      console.error('Minecraft 1.8 Client failed to load:',error);
+      frame.srcdoc='<!doctype html><html><body style="margin:0;padding:28px;background:#171717;color:#eee;font:14px system-ui"><h2>Could not load Minecraft 1.8 Client</h2><p>'+String(error.message).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))+'</p><p>Check your connection and refresh My OS.</p></body></html>';
+    });
   return;
 }if(id==='activity'){mountActivityTracker(root);return;}if(id==='fileshare'){
   root.style.position='relative';root.style.height='100%';root.style.minHeight='0';root.style.overflow='hidden';
