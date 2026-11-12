@@ -765,6 +765,12 @@ function openAppInNewTab(id){
  const tab=window.open('about:blank','_blank');
  if(!tab){toast('Allow pop-ups to open this app in a new tab');return}
  const base='https://cdn.jsdelivr.net/gh/weirdsimplegames/My-os@main/os/';
+ // Minecraft's fullscreen route is already supported by the OS boot sequence.
+ // Navigate directly to it so the new tab doesn't remain on the desktop.
+ if(id==='minecraft18'){
+  tab.location.href=base+'index.html?myosApp='+encodeURIComponent(id);
+  return;
+ }
  tab.document.open();
  tab.document.write('<!doctype html><html><head><title>Opening '+String(app[2]).replace(/[&<>"]/g,'')+'…</title></head><body style="margin:0;background:#090b12;color:white;font:14px system-ui;padding:24px">Opening app…</body></html>');
  tab.document.close();
