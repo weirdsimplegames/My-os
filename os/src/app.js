@@ -162,9 +162,9 @@ function legacy(id,root){if(id==='minecraft18'){
   const frame=document.createElement('iframe');frame.title='Minecraft 1.8 Client';frame.allow='fullscreen; gamepad; clipboard-read; clipboard-write';
   frame.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:0;background:#111';
   root.replaceChildren(frame);
-  // Fetch the client from GitHub Raw, then embed it as srcdoc. Raw GitHub
-  // blocks direct iframe navigation, but its HTML can be fetched and embedded.
-  const clientUrl='https://raw.githubusercontent.com/weirdsimplegames/My-os/main/os/apps/%5BLATEST%5D%20EB%20Client%20Nextgen%20CU7.html';
+  // Resolve the client beside the other OS apps, using the same relative
+  // app path as File Share and the rest of My OS.
+  const clientUrl=new URL('apps/[LATEST] EB Client Nextgen CU7.html',document.baseURI).href;
   frame.srcdoc='<!doctype html><html><body style="margin:0;background:#111;color:#eee;font:14px system-ui;display:grid;place-items:center;height:100vh"><p>Loading Minecraft 1.8 Client…</p></body></html>';
   fetch(clientUrl,{cache:'no-store'})
     .then(response=>{if(!response.ok)throw new Error('GitHub returned HTTP '+response.status);return response.text()})
@@ -764,13 +764,7 @@ function openAppInNewTab(id){
  // Match the OS launcher: open about:blank, fetch the OS HTML, and write it directly.
  const tab=window.open('about:blank','_blank');
  if(!tab){toast('Allow pop-ups to open this app in a new tab');return}
- const base='https://cdn.jsdelivr.net/gh/weirdsimplegames/My-os@main/os/';
- // Minecraft's fullscreen route is already supported by the OS boot sequence.
- // Navigate directly to it so the new tab doesn't remain on the desktop.
- if(id==='minecraft18'){
-  tab.location.href=base+'index.html?myosApp='+encodeURIComponent(id);
-  return;
- }
+ const base=new URL('./',document.baseURI).href;
  tab.document.open();
  tab.document.write('<!doctype html><html><head><title>Opening '+String(app[2]).replace(/[&<>"]/g,'')+'…</title></head><body style="margin:0;background:#090b12;color:white;font:14px system-ui;padding:24px">Opening app…</body></html>');
  tab.document.close();
